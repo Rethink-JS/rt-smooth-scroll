@@ -17,7 +17,7 @@
 - Per-instance configuration via HTML attributes
 - Console logs showing each instance’s final resolved config
 
-**Lenis GitHub:** https://github.com/studio-freight/lenis :contentReference[oaicite:0]{index=0}
+**Lenis GitHub:** https://github.com/studio-freight/lenis
 
 ---
 

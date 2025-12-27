@@ -1,4 +1,4 @@
-/*! @rethink-js/rt-smooth-scroll v1.0.0 | MIT */
+/*! @rethink-js/rt-smooth-scroll v1.0.2 | MIT */
 (() => {
   // src/index.js
   (function() {

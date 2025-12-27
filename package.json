@@ -1,6 +1,6 @@
 {
   "name": "@rethink-js/rt-smooth-scroll",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Lightweight smooth scrolling powered by Lenis with automatic loading, attribute config, and multi-instance support.",
   "keywords": [
     "smooth-scroll",
