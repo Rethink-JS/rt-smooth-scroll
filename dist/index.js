@@ -1,4 +1,4 @@
-/*! @rethink-js/rt-smooth-scroll v1.0.2 | MIT */
+/*! @rethink-js/rt-smooth-scroll v1.1.0 | MIT */
 (() => {
   // src/index.js
   (function() {
@@ -37,7 +37,9 @@
     }
     function parseNum(v, def) {
       if (v === null || v === void 0) return def;
-      var n = Number(v);
+      var s = String(v).trim();
+      if (!s.length) return def;
+      var n = Number(s);
       return Number.isFinite(n) ? n : def;
     }
     function parseStr(v, def) {
@@ -92,105 +94,109 @@
       };
       return easings[n] || null;
     }
-    function hasAnyConfigOn(el) {
-      if (!el) return false;
-      for (var i = 0; i < el.attributes.length; i++) {
-        var n = el.attributes[i].name;
-        if (n && n.indexOf("rt-smooth-scroll-") === 0) return true;
-      }
-      return false;
-    }
-    function ensureDefaultsIfNeeded() {
+    function ensureAutoEnableIfNeeded() {
       var body = document.body;
-      var html = document.documentElement;
       if (!body) return;
       var instances = document.querySelectorAll("[rt-smooth-scroll-instance]");
       var hasInstances = instances && instances.length > 0;
-      if (!hasAttrAnywhere("rt-smooth-scroll") && !hasInstances)
+      if (!hasAttrAnywhere("rt-smooth-scroll") && !hasInstances) {
         body.setAttribute("rt-smooth-scroll", "");
-      var configured = hasAnyConfigOn(html) || hasAnyConfigOn(body);
-      if (configured || hasInstances) return;
-      var defaults = {
-        "rt-smooth-scroll-lerp": "0.25",
-        "rt-smooth-scroll-orientation": "vertical",
-        "rt-smooth-scroll-gesture-orientation": "vertical",
-        "rt-smooth-scroll-normalize-wheel": "true",
-        "rt-smooth-scroll-wheel-multiplier": "1",
-        "rt-smooth-scroll-easing": "easeOutCubic",
-        "rt-smooth-scroll-smooth-touch": "true",
-        "rt-smooth-scroll-sync-touch": "true",
-        "rt-smooth-scroll-sync-touch-lerp": "0",
-        "rt-smooth-scroll-touch-inertia-multiplier": "10",
-        "rt-smooth-scroll-touch-multiplier": "2"
-      };
-      for (var k in defaults) {
-        if (!html.hasAttribute(k) && !body.hasAttribute(k))
-          body.setAttribute(k, defaults[k]);
       }
+    }
+    function isAttrPresent(v) {
+      return v !== null && v !== void 0;
     }
     function readOptions(getLocal) {
       var prefix = "rt-smooth-scroll-";
       function localOrGlobal(name) {
         var v = getLocal(name);
-        if (v !== null && v !== void 0) return v;
+        if (isAttrPresent(v)) return v;
         return getAttr(name);
       }
-      var rawDuration = localOrGlobal(prefix + "duration");
-      var rawLerp = localOrGlobal(prefix + "lerp");
-      var hasDuration = rawDuration !== null && rawDuration !== void 0 && String(rawDuration).trim() !== "";
-      var hasLerp = rawLerp !== null && rawLerp !== void 0 && String(rawLerp).trim() !== "";
-      var duration = parseNum(rawDuration, 1.15);
-      var lerp = parseNum(rawLerp, 0.25);
-      if (hasDuration && !hasLerp) {
-        lerp = 0;
+      function getRaw(name) {
+        return localOrGlobal(prefix + name);
       }
-      var orientation = parseStr(
-        localOrGlobal(prefix + "orientation"),
-        "vertical"
-      );
-      var gestureOrientation = parseStr(
-        localOrGlobal(prefix + "gesture-orientation"),
-        "vertical"
-      );
-      var normalizeWheel = parseBool(
-        localOrGlobal(prefix + "normalize-wheel"),
-        true
-      );
-      var wheelMultiplier = parseNum(
-        localOrGlobal(prefix + "wheel-multiplier"),
-        1
-      );
-      var smoothTouch = parseBool(localOrGlobal(prefix + "smooth-touch"), true);
-      var syncTouch = parseBool(localOrGlobal(prefix + "sync-touch"), true);
-      var syncTouchLerp = parseNum(localOrGlobal(prefix + "sync-touch-lerp"), 0);
-      var touchInertiaMultiplier = parseNum(
-        localOrGlobal(prefix + "touch-inertia-multiplier"),
-        10
-      );
-      var touchMultiplier = parseNum(
-        localOrGlobal(prefix + "touch-multiplier"),
-        2
-      );
-      var infinite = parseBool(localOrGlobal(prefix + "infinite"), false);
-      var easingName = parseStr(localOrGlobal(prefix + "easing"), "easeOutCubic");
+      function hasRaw(name) {
+        return isAttrPresent(getRaw(name));
+      }
+      var opts = {};
+      var hasLerp = hasRaw("lerp");
+      var lerp = parseNum(getRaw("lerp"), void 0);
+      var hasDuration = hasRaw("duration");
+      var duration = parseNum(getRaw("duration"), void 0);
+      var hasEasing = hasRaw("easing");
+      var easingName = parseStr(getRaw("easing"), "");
       var easingFn = easingByName(easingName);
-      var opts = {
-        lerp,
-        orientation,
-        gestureOrientation,
-        normalizeWheel,
-        wheelMultiplier,
-        smoothTouch,
-        syncTouch,
-        syncTouchLerp,
-        touchInertiaMultiplier,
-        touchMultiplier,
-        infinite
-      };
-      if (lerp === 0) {
-        opts.duration = duration;
+      if (hasLerp && lerp !== void 0) {
+        opts.lerp = lerp;
+      } else {
+        if (hasDuration && duration !== void 0) opts.duration = duration;
+        if (hasEasing && easingFn) opts.easing = easingFn;
       }
-      if (easingFn) opts.easing = easingFn;
+      if (hasRaw("orientation")) {
+        var orientation = parseStr(getRaw("orientation"), "");
+        if (orientation) opts.orientation = orientation;
+      }
+      if (hasRaw("gesture-orientation")) {
+        var gestureOrientation = parseStr(getRaw("gesture-orientation"), "");
+        if (gestureOrientation) opts.gestureOrientation = gestureOrientation;
+      }
+      var smoothWheelRaw = getRaw("smooth-wheel");
+      var normalizeWheelRaw = getRaw("normalize-wheel");
+      if (isAttrPresent(smoothWheelRaw)) {
+        opts.smoothWheel = parseBool(smoothWheelRaw, true);
+      } else if (isAttrPresent(normalizeWheelRaw)) {
+        opts.smoothWheel = parseBool(normalizeWheelRaw, true);
+      }
+      if (hasRaw("wheel-multiplier")) {
+        var wheelMultiplier = parseNum(getRaw("wheel-multiplier"), void 0);
+        if (wheelMultiplier !== void 0) opts.wheelMultiplier = wheelMultiplier;
+      }
+      if (hasRaw("touch-multiplier")) {
+        var touchMultiplier = parseNum(getRaw("touch-multiplier"), void 0);
+        if (touchMultiplier !== void 0) opts.touchMultiplier = touchMultiplier;
+      }
+      if (hasRaw("sync-touch")) {
+        opts.syncTouch = parseBool(getRaw("sync-touch"), false);
+      }
+      if (hasRaw("sync-touch-lerp")) {
+        var syncTouchLerp = parseNum(getRaw("sync-touch-lerp"), void 0);
+        if (syncTouchLerp !== void 0) opts.syncTouchLerp = syncTouchLerp;
+      }
+      if (hasRaw("touch-inertia-exponent")) {
+        var tie = parseNum(getRaw("touch-inertia-exponent"), void 0);
+        if (tie !== void 0) opts.touchInertiaExponent = tie;
+      }
+      if (hasRaw("infinite")) {
+        opts.infinite = parseBool(getRaw("infinite"), false);
+      }
+      if (hasRaw("auto-resize")) {
+        opts.autoResize = parseBool(getRaw("auto-resize"), true);
+      }
+      if (hasRaw("overscroll")) {
+        opts.overscroll = parseBool(getRaw("overscroll"), true);
+      }
+      if (hasRaw("anchors")) {
+        var anchorsRaw = getRaw("anchors");
+        var s = String(anchorsRaw || "").trim();
+        if (s === "" || s.toLowerCase() === "true") {
+          opts.anchors = true;
+        } else if (s.toLowerCase() === "false") {
+          opts.anchors = false;
+        } else {
+          try {
+            opts.anchors = JSON.parse(s);
+          } catch (e) {
+            opts.anchors = true;
+          }
+        }
+      }
+      if (hasRaw("auto-toggle")) {
+        opts.autoToggle = parseBool(getRaw("auto-toggle"), false);
+      }
+      if (hasRaw("allow-nested-scroll")) {
+        opts.allowNestedScroll = parseBool(getRaw("allow-nested-scroll"), false);
+      }
       var extra = localOrGlobal(prefix + "options-json");
       if (extra) {
         try {
@@ -230,33 +236,26 @@
       });
     }
     function init() {
-      ensureDefaultsIfNeeded();
+      ensureAutoEnableIfNeeded();
       var enabledRoot = hasAttrAnywhere("rt-smooth-scroll");
       var instanceEls = document.querySelectorAll("[rt-smooth-scroll-instance]");
-      var shouldRun = enabledRoot || instanceEls && instanceEls.length > 0;
+      var hasInstances = instanceEls && instanceEls.length > 0;
+      var shouldRun = enabledRoot || hasInstances;
       if (!shouldRun) return;
       var lenisSrc = parseStr(
         getAttr("rt-smooth-scroll-lenis-src"),
         "https://cdn.jsdelivr.net/npm/lenis@1.3.16/dist/lenis.min.js"
       );
-      var observeResize = parseBool(
-        getAttr("rt-smooth-scroll-observe-resize"),
-        true
-      );
-      var observeMutations = parseBool(
-        getAttr("rt-smooth-scroll-observe-mutations"),
-        true
-      );
       var resizeDebounceMs = parseNum(
         getAttr("rt-smooth-scroll-resize-debounce-ms"),
         0
       );
+      var debug = parseBool(getAttr("rt-smooth-scroll-debug"), true);
       var state = {
         destroyed: false,
         rafId: 0,
         instances: {},
         order: [],
-        observers: {},
         resizeTimers: {}
       };
       function scheduleResize(id) {
@@ -285,70 +284,80 @@
         }
         state.rafId = requestAnimationFrame(raf);
       }
-      function addObservers(id, wrapperEl) {
-        if (!wrapperEl || wrapperEl === window) return;
-        var ro = null;
-        var mo = null;
-        if (observeResize && typeof ResizeObserver !== "undefined") {
-          ro = new ResizeObserver(function() {
-            scheduleResize(id);
-          });
-          ro.observe(wrapperEl);
-        }
-        if (observeMutations && typeof MutationObserver !== "undefined") {
-          mo = new MutationObserver(function() {
-            scheduleResize(id);
-          });
-          mo.observe(wrapperEl, { childList: true, subtree: true });
-        }
-        state.observers[id] = { ro, mo };
-      }
-      function removeObservers(id) {
-        var obs = state.observers[id];
-        if (!obs) return;
-        if (obs.ro) obs.ro.disconnect();
-        if (obs.mo) obs.mo.disconnect();
-        delete state.observers[id];
-      }
       function sanitizeOptionsForLog(opts) {
         var out = {};
         for (var k in opts) {
           if (!Object.prototype.hasOwnProperty.call(opts, k)) continue;
           var v = opts[k];
-          if (typeof v === "function") {
-            out[k] = "[Function]";
-          } else {
-            out[k] = v;
-          }
+          if (typeof v === "function") out[k] = "[Function]";
+          else out[k] = v;
         }
         return out;
       }
-      function createInstance(id, wrapper, content, options) {
-        var opts = options || {};
-        if (wrapper) opts.wrapper = wrapper;
-        if (content) opts.content = content;
-        var inst = new window.Lenis(opts);
-        state.instances[id] = inst;
-        state.order.push(id);
-        if (wrapper && wrapper !== window) addObservers(id, wrapper);
-        if (id === "root") window.lenis = inst;
+      function resolveElementFromSelector(base, selector) {
+        if (!selector) return null;
+        var s = String(selector).trim();
+        if (!s.length) return null;
+        if (s === "window") return window;
         try {
-          console.log("[rt-smooth-scroll] instance:", id, {
-            wrapper: wrapper === window ? "window" : wrapper,
-            content: content || null,
-            options: sanitizeOptionsForLog(opts)
-          });
+          return (base || document).querySelector(s);
         } catch (e) {
+          return null;
         }
-        return inst;
+      }
+      function applySelectorsToOptions(el, opts) {
+        var prefix = "rt-smooth-scroll-";
+        var wrapperSel = getAttrFrom(el, prefix + "wrapper");
+        var contentSel = getAttrFrom(el, prefix + "content");
+        var eventsSel = getAttrFrom(el, prefix + "events-target");
+        if (wrapperSel) {
+          var w = resolveElementFromSelector(document, wrapperSel);
+          if (w) opts.wrapper = w;
+        }
+        if (contentSel) {
+          var c = resolveElementFromSelector(document, contentSel);
+          if (c) opts.content = c;
+        }
+        if (eventsSel) {
+          var et = resolveElementFromSelector(document, eventsSel);
+          if (et) opts.eventsTarget = et;
+        }
+        return opts;
       }
       function getContentForWrapper(wrapperEl) {
         var selector = getAttrFrom(wrapperEl, "rt-smooth-scroll-content");
         if (selector) {
-          var found = wrapperEl.querySelector(selector);
+          var found = null;
+          try {
+            found = wrapperEl.querySelector(selector);
+          } catch (e) {
+            found = null;
+          }
           if (found) return found;
         }
         return wrapperEl.firstElementChild || wrapperEl;
+      }
+      function createInstance(id, wrapper, content, options, isRoot) {
+        var opts = options || {};
+        if (!isRoot) {
+          if (wrapper) opts.wrapper = wrapper;
+          if (content) opts.content = content;
+        }
+        var inst = new window.Lenis(opts);
+        state.instances[id] = inst;
+        state.order.push(id);
+        if (id === "root") window.lenis = inst;
+        if (debug) {
+          try {
+            console.log("[rt-smooth-scroll] instance:", id, {
+              wrapper: isRoot ? opts.wrapper || "default" : wrapper,
+              content: isRoot ? opts.content || "default" : content,
+              options: sanitizeOptionsForLog(opts)
+            });
+          } catch (e) {
+          }
+        }
+        return inst;
       }
       function makeApi() {
         function forEachTarget(id, fn) {
@@ -401,7 +410,6 @@
             if (state.destroyed) return;
             function destroyOne(k) {
               clearTimeout(state.resizeTimers[k]);
-              removeObservers(k);
               var inst = state.instances[k];
               if (inst) {
                 try {
@@ -442,13 +450,26 @@
       }
       loadScriptOnce(lenisSrc).then(function() {
         if (state.destroyed) return;
+        var els = document.querySelectorAll("[rt-smooth-scroll-instance]");
+        var totalCount = (enabledRoot ? 1 : 0) + (els ? els.length : 0);
+        var allowAutoRaf = totalCount === 1 && enabledRoot && (!els || els.length === 0);
         if (enabledRoot && !state.instances.root) {
           var optsRoot = readOptions(function() {
             return null;
           });
-          createInstance("root", window, document.documentElement, optsRoot);
+          optsRoot = applySelectorsToOptions(
+            document.body || document.documentElement,
+            optsRoot
+          );
+          if (allowAutoRaf) {
+            var rawAutoRaf = getAttr("rt-smooth-scroll-auto-raf");
+            var autoRaf = isAttrPresent(rawAutoRaf) ? parseBool(rawAutoRaf, true) : true;
+            optsRoot.autoRaf = autoRaf;
+          } else {
+            optsRoot.autoRaf = false;
+          }
+          createInstance("root", null, null, optsRoot, true);
         }
-        var els = document.querySelectorAll("[rt-smooth-scroll-instance]");
         var autoCount = 0;
         for (var i = 0; i < els.length; i++) {
           var el = els[i];
@@ -462,9 +483,13 @@
           var opts = readOptions(function(name) {
             return getAttrFrom(el, name);
           });
-          createInstance(id, el, content, opts);
+          opts = applySelectorsToOptions(el, opts);
+          opts.autoRaf = false;
+          createInstance(id, el, content, opts, false);
         }
-        startRaf();
+        if (!allowAutoRaf) {
+          startRaf();
+        }
         var api = makeApi();
         window[RT_NS] = api;
         installLegacyAliases(api);

@@ -9,15 +9,15 @@
 
 `rt-smooth-scroll` is a lightweight JavaScript library that seamlessly integrates the **Lenis smooth scroll engine** into your sites with:
 
-- **Automatic Lenis loading** (no extra installs/styles needed)
-- **Zero-config defaults** that work out of the box
+- **Automatic Lenis loading** (no extra installs needed)
+- **Zero-config defaults** (Lenis defaults, unless you override via attributes)
 - Support for **multiple smooth scroll instances**
 - A clean global API under `window.rtSmoothScroll`
-- Automatic resize + mutation observation for reliable reflow handling
+- Optional resize + mutation observation (useful for wrapper instances)
 - Per-instance configuration via HTML attributes
 - Console logs showing each instance’s final resolved config
 
-**Lenis GitHub:** https://github.com/studio-freight/lenis
+**Lenis (GitHub):** https://github.com/darkroomengineering/lenis
 
 ---
 
@@ -59,8 +59,7 @@ Then bundle or load `dist/index.min.js` as appropriate for your build setup.
 
 Add the script to your page. With no configuration provided, `rt-smooth-scroll` will:
 
-- Enable itself automatically
-- Apply recommended default settings to `<body>`
+- Activate itself automatically (if you didn’t explicitly opt out)
 - Load Lenis from CDN
 - Create a root smooth scroll instance
 - Expose the global API
@@ -71,6 +70,8 @@ Example:
 <script src="https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js"></script>
 ```
 
+> Note: If you do not set any `rt-smooth-scroll-*` config attributes, the root instance uses **Lenis defaults**.
+
 ---
 
 ## 3. Activation Rules
@@ -80,7 +81,7 @@ The library is activated when:
 - The attribute `rt-smooth-scroll` exists on `<html>` or `<body>` **OR**
 - You place one or more elements with `rt-smooth-scroll-instance`
 
-If neither is present and no instance elements are found, it **auto-enables** itself on `<body>` with defaults.
+If neither is present and no instance elements are found, it **auto-enables** itself on `<body>` by adding `rt-smooth-scroll` (so you get a working root instance by default).
 
 ---
 
@@ -107,22 +108,29 @@ Place on `<html>` or `<body>` to configure defaults:
 ></body>
 ```
 
+Important Lenis behavior:
+
+- `duration` and `easing` are **useless if `lerp` is defined** (this is how Lenis works).
+
 **Core attributes:**
 
-| Attribute                              | Description                 |
-| -------------------------------------- | --------------------------- |
-| `rt-smooth-scroll-duration`            | Lenis `duration` value      |
-| `rt-smooth-scroll-lerp`                | Lenis `lerp` value          |
-| `rt-smooth-scroll-orientation`         | Scroll orientation          |
-| `rt-smooth-scroll-gesture-orientation` | Gesture orientation         |
-| `rt-smooth-scroll-normalize-wheel`     | Normalize wheel input       |
-| `rt-smooth-scroll-wheel-multiplier`    | Multiplies wheel delta      |
-| `rt-smooth-scroll-sync-touch`          | Sync touch behavior         |
-| `rt-smooth-scroll-touch-multiplier`    | Multiplies touch delta      |
-| `rt-smooth-scroll-infinite`            | Enable infinite scroll mode |
-| `rt-smooth-scroll-easing`              | Named easing function       |
+| Attribute                                   | Description                                                  |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| `rt-smooth-scroll-duration`                 | Lenis `duration` (only applies when `lerp` is not used)      |
+| `rt-smooth-scroll-lerp`                     | Lenis `lerp` (0 → 1)                                         |
+| `rt-smooth-scroll-orientation`              | Lenis `orientation`                                          |
+| `rt-smooth-scroll-gesture-orientation`      | Lenis `gestureOrientation`                                   |
+| `rt-smooth-scroll-normalize-wheel`          | Lenis `normalizeWheel`                                       |
+| `rt-smooth-scroll-wheel-multiplier`         | Lenis `wheelMultiplier`                                      |
+| `rt-smooth-scroll-smooth-touch`             | Lenis `smoothTouch`                                          |
+| `rt-smooth-scroll-sync-touch`               | Lenis `syncTouch`                                            |
+| `rt-smooth-scroll-sync-touch-lerp`          | Lenis `syncTouchLerp`                                        |
+| `rt-smooth-scroll-touch-inertia-multiplier` | Lenis `touchInertiaMultiplier`                               |
+| `rt-smooth-scroll-touch-multiplier`         | Lenis `touchMultiplier`                                      |
+| `rt-smooth-scroll-infinite`                 | Lenis `infinite`                                             |
+| `rt-smooth-scroll-easing`                   | Named easing function (only applies when `lerp` is not used) |
 
-**Easing options include:**
+**Easing options included:**
 
 - `linear`
 - `easeInQuad`
@@ -147,11 +155,11 @@ Add attributes to any scroll container:
 ></div>
 ```
 
-| Attribute                   | Description                  |
-| --------------------------- | ---------------------------- |
-| `rt-smooth-scroll-instance` | Marks scroll container       |
-| `rt-smooth-scroll-id`       | Optional instance identifier |
-| `rt-smooth-scroll-content`  | Selector inside container    |
+| Attribute                   | Description                                                    |
+| --------------------------- | -------------------------------------------------------------- |
+| `rt-smooth-scroll-instance` | Marks scroll container                                         |
+| `rt-smooth-scroll-id`       | Optional instance identifier                                   |
+| `rt-smooth-scroll-content`  | Selector inside container (defaults to first child if omitted) |
 
 ### Advanced JSON
 
@@ -163,6 +171,15 @@ You may pass additional Lenis options via:
   rt-smooth-scroll-options-json='{"overscroll":true}'
 ></body>
 ```
+
+### Lenis Loader / Observer Controls
+
+| Attribute                             | Description                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------ |
+| `rt-smooth-scroll-lenis-src`          | Override Lenis CDN URL                                                         |
+| `rt-smooth-scroll-observe-resize`     | Enable `ResizeObserver` for wrapper instances (default: `true` if supported)   |
+| `rt-smooth-scroll-observe-mutations`  | Enable `MutationObserver` for wrapper instances (default: `true` if supported) |
+| `rt-smooth-scroll-resize-debounce-ms` | Debounce resize calls (default: `0`)                                           |
 
 ---
 
@@ -215,10 +232,15 @@ This helps you confirm exactly what configuration is applied in the browser.
 
 ## 8. Troubleshooting
 
-### Scroll feels laggy
+### Scroll feels laggy / too delayed
 
-- Lower `lerp` (e.g., `0.18–0.3`) for snappier response.
-- Avoid combining duration and lerp unintentionally.
+- **Increase** `rt-smooth-scroll-lerp` (e.g. `0.2 → 0.35`) for a snappier response.
+- **Decrease** `rt-smooth-scroll-lerp` (e.g. `0.1 → 0.05`) for a smoother/heavier feel.
+- Leave `rt-smooth-scroll-wheel-multiplier="1"` unless you have a strong reason to change perceived speed.
+
+### Duration / easing doesn’t seem to do anything
+
+Lenis treats `duration` and `easing` as **useless if `lerp` is defined**. If you want time-based behavior, ensure you’re not effectively running in lerp-mode.
 
 ### Instance not initialized
 
@@ -237,12 +259,10 @@ If using a custom `rt-smooth-scroll-lenis-src`, confirm the URL points to a vali
 
 MIT License
 
-Package: `@rethink-js/rt-smooth-scroll`
-<br>
+Package: `@rethink-js/rt-smooth-scroll` <br>
 GitHub: [https://github.com/Rethink-JS/rt-smooth-scroll](https://github.com/Rethink-JS/rt-smooth-scroll)
 
 ---
 
-by **Rethink JS**
-<br>
+by **Rethink JS** <br>
 [https://github.com/Rethink-JS](https://github.com/Rethink-JS)
