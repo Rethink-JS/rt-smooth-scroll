@@ -13,7 +13,8 @@
 - **Zero-config defaults** (Lenis defaults, unless you override via attributes)
 - Support for **multiple smooth scroll instances**
 - A clean global API under `window.rtSmoothScroll`
-- Optional resize + mutation observation (useful for wrapper instances)
+- **Smart Scroll-To actions** with indexed selectors and dynamic offsets
+- **Automatic Anchor Link Conversion** (hijack native links for smooth scrolling)
 - Per-instance configuration via HTML attributes
 - Console logs showing each instance’s final resolved config
 
@@ -29,11 +30,13 @@
 - [2. Quick Start](#2-quick-start)
 - [3. Activation Rules](#3-activation-rules)
 - [4. Configuration (HTML Attributes)](#4-configuration-html-attributes)
-- [5. Multiple Instances](#5-multiple-instances)
-- [6. Global API](#6-global-api)
-- [7. Console Logging](#7-console-logging)
-- [8. Troubleshooting](#8-troubleshooting)
-- [9. License](#9-license)
+- [5. Scroll-To Actions](#5-scroll-to-actions)
+- [6. Anchor Link Conversion](#6-anchor-link-conversion)
+- [7. Multiple Instances](#7-multiple-instances)
+- [8. Global API](#8-global-api)
+- [9. Console Logging](#9-console-logging)
+- [10. Troubleshooting](#10-troubleshooting)
+- [11. License](#11-license)
 
 ---
 
@@ -42,7 +45,7 @@
 ### 1.1 CDN (jsDelivr)
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js"></script>
+<script src="[https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js](https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js)"></script>
 ```
 
 ### 1.2 npm
@@ -67,7 +70,7 @@ Add the script to your page. With no configuration provided, `rt-smooth-scroll` 
 Example:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js"></script>
+<script src="[https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js](https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js)"></script>
 ```
 
 > Note: If you do not set any `rt-smooth-scroll-*` config attributes, the root instance uses **Lenis defaults**.
@@ -161,35 +164,86 @@ Add attributes to any scroll container:
 | `rt-smooth-scroll-id`       | Optional instance identifier                                   |
 | `rt-smooth-scroll-content`  | Selector inside container (defaults to first child if omitted) |
 
-### Advanced JSON
+---
 
-You may pass additional Lenis options via:
+## 5. Scroll-To Actions
+
+You can trigger a smooth scroll to any element, position, or specific instance using the `rt-smooth-scroll-to` attribute on any clickable element.
+
+### Basic Usage
 
 ```html
-<body
-  rt-smooth-scroll
-  rt-smooth-scroll-options-json='{"overscroll":true}'
-></body>
+<button rt-smooth-scroll-to="#footer">Go to Footer</button>
+
+<button rt-smooth-scroll-to="top">Back to Top</button>
+
+<button rt-smooth-scroll-to="500">Go to 500px</button>
 ```
 
-### Lenis Loader / Observer Controls
+### Indexed Selectors
 
-| Attribute                             | Description                                                                    |
-| ------------------------------------- | ------------------------------------------------------------------------------ |
-| `rt-smooth-scroll-lenis-src`          | Override Lenis CDN URL                                                         |
-| `rt-smooth-scroll-observe-resize`     | Enable `ResizeObserver` for wrapper instances (default: `true` if supported)   |
-| `rt-smooth-scroll-observe-mutations`  | Enable `MutationObserver` for wrapper instances (default: `true` if supported) |
-| `rt-smooth-scroll-resize-debounce-ms` | Debounce resize calls (default: `0`)                                           |
+You can target elements by class order (1-based index) using `.class(N)` syntax.
+
+```html
+<button rt-smooth-scroll-to=".section(2)">Go to Section 2</button>
+```
+
+### Customization Attributes
+
+You can customize the scroll behavior for specific triggers.
+
+| Attribute                    | Description                                                        |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `rt-smooth-scroll-offset`    | Offset in pixels. **Supports selectors!** (See below)              |
+| `rt-smooth-scroll-duration`  | Override scroll duration for this action                           |
+| `rt-smooth-scroll-immediate` | Jump instantly (true/false)                                        |
+| `rt-smooth-scroll-lock`      | Lock scroll during animation                                       |
+| `rt-smooth-scroll-force`     | Force scroll even if stopped                                       |
+| `rt-smooth-scroll-target-id` | **Explicitly** target a specific scroll instance ID (e.g. "panel") |
+
+### Dynamic Element Offsets
+
+Instead of hardcoding pixels, you can pass a selector to `rt-smooth-scroll-offset`. The library will calculate that element's `offsetHeight` and apply it as a **negative offset** (perfect for sticky headers).
+
+```html
+<button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="#nav">
+  About
+</button>
+```
 
 ---
 
-## 5. Multiple Instances
+## 6. Anchor Link Conversion
+
+You can automatically convert standard `<a>` tags (e.g., `<a href="#contact">`) into smooth scroll triggers without manually adding attributes to every link.
+
+### Enable Conversion
+
+Add this attribute to your `<body>` or `<html>` tag:
+
+```html
+<body rt-smooth-scroll rt-smooth-scroll-anchor-links="true"></body>
+```
+
+### How it works
+
+1. **Auto-Detection:** Finds all links pointing to a hash on the current page.
+2. **Hijacking:** Converts them to use the `rt-smooth-scroll-to` logic.
+3. **Clean URLs:** Removes the `href` attribute so the browser URL bar does **not** update (no `#hash` in URL), keeping your history clean.
+4. **Accessibility:** Automatically restores `tabindex="0"`, `role="button"`, `cursor: pointer`, and keyboard `Enter` key support.
+
+---
+
+## 7. Multiple Instances
 
 `rt-smooth-scroll` supports any number of independent Lenis instances on a page. Each instance has its own wrapper + content and can be controlled individually via API.
 
+**Context Awareness:**
+If a `rt-smooth-scroll-to` button is placed **inside** a nested scroll instance, it will automatically control that parent instance, not the root window, unless you explicitly override it with `rt-smooth-scroll-target-id`.
+
 ---
 
-## 6. Global API
+## 8. Global API
 
 After initialization, access:
 
@@ -199,15 +253,16 @@ window.rtSmoothScroll;
 
 ### Common methods:
 
-| Method         | Description                      |
-| -------------- | -------------------------------- |
-| `ids()`        | Array of registered instance ids |
-| `get(id)`      | Returns Lenis instance           |
-| `start(id?)`   | Start scroll                     |
-| `stop(id?)`    | Stop scroll                      |
-| `toggle(id?)`  | Toggle scroll                    |
-| `resize(id?)`  | Trigger Lenis resize             |
-| `destroy(id?)` | Remove instance                  |
+| Method             | Description                                                         |
+| ------------------ | ------------------------------------------------------------------- |
+| `ids()`            | Array of registered instance ids                                    |
+| `get(id)`          | Returns Lenis instance                                              |
+| `start(id?)`       | Start scroll                                                        |
+| `stop(id?)`        | Stop scroll                                                         |
+| `toggle(id?)`      | Toggle scroll                                                       |
+| `resize(id?)`      | Trigger Lenis resize                                                |
+| `refreshAnchors()` | Manually re-run anchor link conversion (useful for dynamic content) |
+| `destroy(id?)`     | Remove instance                                                     |
 
 **Default root Lenis instance** is also exposed as:
 
@@ -217,7 +272,7 @@ window.lenis;
 
 ---
 
-## 7. Console Logging
+## 9. Console Logging
 
 On startup, each instance logs:
 
@@ -230,7 +285,7 @@ This helps you confirm exactly what configuration is applied in the browser.
 
 ---
 
-## 8. Troubleshooting
+## 10. Troubleshooting
 
 ### Scroll feels laggy / too delayed
 
@@ -242,27 +297,18 @@ This helps you confirm exactly what configuration is applied in the browser.
 
 Lenis treats `duration` and `easing` as **useless if `lerp` is defined**. If you want time-based behavior, ensure you’re not effectively running in lerp-mode.
 
-### Instance not initialized
-
-Ensure you’ve enabled either:
-
-- the root attribute (`rt-smooth-scroll`), or
-- one or more instance elements.
-
-### Lenis fails to load
-
-If using a custom `rt-smooth-scroll-lenis-src`, confirm the URL points to a valid Lenis build.
-
 ---
 
-## 9. License
+## 11. License
 
 MIT License
 
-Package: `@rethink-js/rt-smooth-scroll` <br>
+Package: `@rethink-js/rt-smooth-scroll`
+<br>
 GitHub: [https://github.com/Rethink-JS/rt-smooth-scroll](https://github.com/Rethink-JS/rt-smooth-scroll)
 
 ---
 
-by **Rethink JS** <br>
+by **Rethink JS**
+<br>
 [https://github.com/Rethink-JS](https://github.com/Rethink-JS)
