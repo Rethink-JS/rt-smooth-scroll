@@ -496,6 +496,10 @@
 
         if (!instance) return;
 
+        // Force resize before calculating scroll to handle lazy-loaded elements
+        // that might have shifted layout since the last update.
+        instance.resize();
+
         var opts = {};
         var offsetRaw = targetEl.getAttribute("rt-smooth-scroll-offset");
         if (offsetRaw) {
@@ -527,6 +531,25 @@
           null,
         );
         if (force !== null) opts.force = force;
+
+        // If target is an DOM Element (not a number), we add a correction step.
+        // If layout shifts during the scroll (e.g. images loading), the target
+        // position might change. We re-check on completion.
+        if (target instanceof Element) {
+          var originalComplete = opts.onComplete;
+          opts.onComplete = function (inst) {
+            if (originalComplete) originalComplete(inst);
+            // Re-measure the layout
+            instance.resize();
+            // Perform a correction scroll to the updated position
+            // We create a copy of opts but remove onComplete to prevent infinite loops
+            var retryOpts = {};
+            for (var k in opts) retryOpts[k] = opts[k];
+            delete retryOpts.onComplete;
+            // Execute correction
+            instance.scrollTo(target, retryOpts);
+          };
+        }
 
         instance.scrollTo(target, opts);
       };

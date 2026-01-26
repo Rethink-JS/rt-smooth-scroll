@@ -441,6 +441,7 @@
             instance = state.instances["root"];
           }
           if (!instance) return;
+          instance.resize();
           var opts = {};
           var offsetRaw = targetEl.getAttribute("rt-smooth-scroll-offset");
           if (offsetRaw) {
@@ -472,6 +473,17 @@
             null
           );
           if (force !== null) opts.force = force;
+          if (target instanceof Element) {
+            var originalComplete = opts.onComplete;
+            opts.onComplete = function(inst) {
+              if (originalComplete) originalComplete(inst);
+              instance.resize();
+              var retryOpts = {};
+              for (var k in opts) retryOpts[k] = opts[k];
+              delete retryOpts.onComplete;
+              instance.scrollTo(target, retryOpts);
+            };
+          }
           instance.scrollTo(target, opts);
         };
         state.clickListener = function(e) {
