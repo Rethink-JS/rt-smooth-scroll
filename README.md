@@ -4,7 +4,6 @@
 ![JavaScript](https://img.shields.io/badge/language-JavaScript-F7DF1E?logo=javascript)
 [![npm version](https://img.shields.io/npm/v/%40rethink-js%2Frt-smooth-scroll.svg)](https://www.npmjs.com/package/@rethink-js/rt-smooth-scroll)
 [![jsDelivr hits](https://data.jsdelivr.com/v1/package/npm/@rethink-js/rt-smooth-scroll/badge)](https://www.jsdelivr.com/package/npm/@rethink-js/rt-smooth-scroll)
-[![bundle size](https://img.shields.io/bundlephobia/min/%40rethink-js%2Frt-smooth-scroll)](https://bundlephobia.com/package/@rethink-js/rt-smooth-scroll)
 [![License: MIT](https://img.shields.io/badge/License-MIT-FFD632.svg)](https://opensource.org/licenses/MIT)
 
 `rt-smooth-scroll` is a lightweight JavaScript library that seamlessly integrates the **Lenis smooth scroll engine** into your sites with:
@@ -15,6 +14,7 @@
 - A clean global API under `window.rtSmoothScroll`
 - **Smart Scroll-To actions** with indexed selectors and dynamic offsets
 - **Automatic Anchor Link Conversion** (hijack native links for smooth scrolling)
+- **Scroll-To Completion Hooks** (run actions/functions after a scroll-to completes)
 - Per-instance configuration via HTML attributes
 - Console logs showing each instance’s final resolved config
 
@@ -45,7 +45,7 @@
 ### 1.1 CDN (jsDelivr)
 
 ```html
-<script src="[https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js](https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js)"></script>
+<script src="https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js"></script>
 ```
 
 ### 1.2 npm
@@ -70,7 +70,7 @@ Add the script to your page. With no configuration provided, `rt-smooth-scroll` 
 Example:
 
 ```html
-<script src="[https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js](https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js)"></script>
+<script src="https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js"></script>
 ```
 
 > Note: If you do not set any `rt-smooth-scroll-*` config attributes, the root instance uses **Lenis defaults**.
@@ -117,21 +117,27 @@ Important Lenis behavior:
 
 **Core attributes:**
 
-| Attribute                                   | Description                                                  |
-| ------------------------------------------- | ------------------------------------------------------------ |
-| `rt-smooth-scroll-duration`                 | Lenis `duration` (only applies when `lerp` is not used)      |
-| `rt-smooth-scroll-lerp`                     | Lenis `lerp` (0 → 1)                                         |
-| `rt-smooth-scroll-orientation`              | Lenis `orientation`                                          |
-| `rt-smooth-scroll-gesture-orientation`      | Lenis `gestureOrientation`                                   |
-| `rt-smooth-scroll-normalize-wheel`          | Lenis `normalizeWheel`                                       |
-| `rt-smooth-scroll-wheel-multiplier`         | Lenis `wheelMultiplier`                                      |
-| `rt-smooth-scroll-smooth-touch`             | Lenis `smoothTouch`                                          |
-| `rt-smooth-scroll-sync-touch`               | Lenis `syncTouch`                                            |
-| `rt-smooth-scroll-sync-touch-lerp`          | Lenis `syncTouchLerp`                                        |
-| `rt-smooth-scroll-touch-inertia-multiplier` | Lenis `touchInertiaMultiplier`                               |
-| `rt-smooth-scroll-touch-multiplier`         | Lenis `touchMultiplier`                                      |
-| `rt-smooth-scroll-infinite`                 | Lenis `infinite`                                             |
-| `rt-smooth-scroll-easing`                   | Named easing function (only applies when `lerp` is not used) |
+| Attribute                                 | Description                                                  |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| `rt-smooth-scroll-duration`               | Lenis `duration` (only applies when `lerp` is not used)      |
+| `rt-smooth-scroll-lerp`                   | Lenis `lerp` (0 → 1)                                         |
+| `rt-smooth-scroll-orientation`            | Lenis `orientation`                                          |
+| `rt-smooth-scroll-gesture-orientation`    | Lenis `gestureOrientation`                                   |
+| `rt-smooth-scroll-normalize-wheel`        | Alias of Lenis `smoothWheel` (legacy naming supported)       |
+| `rt-smooth-scroll-smooth-wheel`           | Lenis `smoothWheel`                                          |
+| `rt-smooth-scroll-wheel-multiplier`       | Lenis `wheelMultiplier`                                      |
+| `rt-smooth-scroll-touch-multiplier`       | Lenis `touchMultiplier`                                      |
+| `rt-smooth-scroll-sync-touch`             | Lenis `syncTouch`                                            |
+| `rt-smooth-scroll-sync-touch-lerp`        | Lenis `syncTouchLerp`                                        |
+| `rt-smooth-scroll-touch-inertia-exponent` | Lenis `touchInertiaExponent`                                 |
+| `rt-smooth-scroll-infinite`               | Lenis `infinite`                                             |
+| `rt-smooth-scroll-auto-resize`            | Lenis `autoResize`                                           |
+| `rt-smooth-scroll-overscroll`             | Lenis `overscroll`                                           |
+| `rt-smooth-scroll-anchors`                | Lenis `anchors` (boolean or JSON)                            |
+| `rt-smooth-scroll-auto-toggle`            | Lenis `autoToggle`                                           |
+| `rt-smooth-scroll-allow-nested-scroll`    | Lenis `allowNestedScroll`                                    |
+| `rt-smooth-scroll-easing`                 | Named easing function (only applies when `lerp` is not used) |
+| `rt-smooth-scroll-options-json`           | Merge additional Lenis options via JSON                      |
 
 **Easing options included:**
 
@@ -163,6 +169,31 @@ Add attributes to any scroll container:
 | `rt-smooth-scroll-instance` | Marks scroll container                                         |
 | `rt-smooth-scroll-id`       | Optional instance identifier                                   |
 | `rt-smooth-scroll-content`  | Selector inside container (defaults to first child if omitted) |
+
+### Advanced Selectors (wrapper/content/eventsTarget)
+
+You can map Lenis DOM targets using selectors:
+
+```html
+<body
+  rt-smooth-scroll
+  rt-smooth-scroll-wrapper="#page-wrapper"
+  rt-smooth-scroll-content="#page-content"
+  rt-smooth-scroll-events-target="#page-wrapper"
+></body>
+```
+
+Or per instance:
+
+```html
+<div
+  rt-smooth-scroll-instance
+  rt-smooth-scroll-id="panel"
+  rt-smooth-scroll-wrapper="#panel-wrapper"
+  rt-smooth-scroll-content=".panel-content"
+  rt-smooth-scroll-events-target="#panel-wrapper"
+></div>
+```
 
 ---
 
@@ -211,6 +242,126 @@ Instead of hardcoding pixels, you can pass a selector to `rt-smooth-scroll-offse
 </button>
 ```
 
+### Scroll-To Completion Hooks
+
+When a scroll-to finishes (including the built-in correction pass for layout shifts), you can run an action/function.
+
+**Supported hook attributes:**
+
+- Per-trigger: `rt-smooth-scroll-on-complete`
+- Global default: `rt-smooth-scroll-on-complete` on `<html>` or `<body>`
+
+#### 5.1 Per-trigger completion action
+
+Click an element after the scroll completes:
+
+```html
+<a rt-smooth-scroll-to="#contact" rt-smooth-scroll-on-complete="#nav-show">
+  Contact
+</a>
+```
+
+The shorthand above treats the value as a selector and will `click()` it.
+
+You can also be explicit:
+
+```html
+<a
+  rt-smooth-scroll-to="#contact"
+  rt-smooth-scroll-on-complete="click:#nav-show"
+>
+  Contact
+</a>
+```
+
+#### 5.2 Global default completion action
+
+Apply to all scroll-to triggers unless they override it:
+
+```html
+<body rt-smooth-scroll rt-smooth-scroll-on-complete="click:#nav-show"></body>
+```
+
+#### 5.3 Supported completion action formats
+
+**1) Selector-only (defaults to click)**
+
+```html
+<button rt-smooth-scroll-to="#x" rt-smooth-scroll-on-complete="#nav-show">
+  Go
+</button>
+```
+
+**2) Typed strings**
+
+- `click:#selector`
+- `focus:#selector`
+- `dispatch:event-name` (fires `CustomEvent` on `window`)
+- `call:functionName` (calls `window[functionName]`)
+
+Examples:
+
+```html
+<button rt-smooth-scroll-to="#x" rt-smooth-scroll-on-complete="focus:#search">
+  Go
+</button>
+
+<button
+  rt-smooth-scroll-to="#x"
+  rt-smooth-scroll-on-complete="dispatch:rt:smooth-scroll:complete"
+>
+  Go
+</button>
+
+<button
+  rt-smooth-scroll-to="#x"
+  rt-smooth-scroll-on-complete="call:afterScroll"
+>
+  Go
+</button>
+```
+
+When using `call:functionName`, your function receives a single object:
+
+```js
+window.afterScroll = function (ctx) {
+  console.log("afterScroll", ctx);
+};
+```
+
+`ctx` includes:
+
+- `lenis` (the Lenis instance used)
+- `trigger` (the element that initiated the scroll)
+- `target` (resolved target number/element/window)
+- `value` (the raw `rt-smooth-scroll-to` string)
+- `id` (the explicit `rt-smooth-scroll-target-id` if provided)
+
+**3) JSON actions (single or array)**
+
+This is the most robust option for multi-step actions:
+
+```html
+<button
+  rt-smooth-scroll-to="#x"
+  rt-smooth-scroll-on-complete='[
+    {"type":"click","selector":"#nav-show"},
+    {"type":"dispatch","name":"rt:smooth-scroll:complete","detail":{"from":"scroll-to"}}
+  ]'
+>
+  Go
+</button>
+```
+
+Supported JSON action types:
+
+- `{ "type": "click", "selector": "#el" }`
+- `{ "type": "focus", "selector": "#el" }`
+- `{ "type": "dispatch", "name": "event-name", "detail": any }`
+- `{ "type": "call", "name": "functionName", "detail": any }`
+
+For `dispatch` and `call`, `detail` is merged into the context under `detail`.
+
 ---
 
 ## 6. Anchor Link Conversion
@@ -230,7 +381,24 @@ Add this attribute to your `<body>` or `<html>` tag:
 1. **Auto-Detection:** Finds all links pointing to a hash on the current page.
 2. **Hijacking:** Converts them to use the `rt-smooth-scroll-to` logic.
 3. **Clean URLs:** Removes the `href` attribute so the browser URL bar does **not** update (no `#hash` in URL), keeping your history clean.
-4. **Accessibility:** Automatically restores `tabindex="0"`, `role="button"`, `cursor: pointer`, and keyboard `Enter` key support.
+4. **Accessibility:** Automatically restores `tabindex="0"`, `role="button"`, `cursor: pointer`, and keyboard `Enter` / `Space` key support.
+
+### Anchor link completion hook (auto-injected)
+
+You can automatically attach a completion hook to every converted anchor link:
+
+```html
+<body
+  rt-smooth-scroll
+  rt-smooth-scroll-anchor-links="true"
+  rt-smooth-scroll-anchor-links-on-complete="click:#nav-show"
+></body>
+```
+
+Rules:
+
+- If a link already has `rt-smooth-scroll-on-complete`, it is not overridden.
+- If `rt-smooth-scroll-anchor-links-on-complete` exists, it is copied into each converted link as `rt-smooth-scroll-on-complete`.
 
 ---
 
@@ -297,18 +465,23 @@ This helps you confirm exactly what configuration is applied in the browser.
 
 Lenis treats `duration` and `easing` as **useless if `lerp` is defined**. If you want time-based behavior, ensure you’re not effectively running in lerp-mode.
 
+### My `rt-smooth-scroll-on-complete` didn’t run
+
+Common causes:
+
+- The selector/function name is wrong or not available at runtime.
+- Your completion hook depends on DOM that’s not yet mounted/visible.
+- If you are using `call:fnName`, ensure `window.fnName` exists before the scroll completes.
+- If you are using JSON, ensure it is valid JSON (double quotes, no trailing commas).
+
 ---
 
 ## 11. License
 
 MIT License
 
-Package: `@rethink-js/rt-smooth-scroll`
-<br>
+Package: `@rethink-js/rt-smooth-scroll` <br>
 GitHub: [https://github.com/Rethink-JS/rt-smooth-scroll](https://github.com/Rethink-JS/rt-smooth-scroll)
 
----
-
-by **Rethink JS**
-<br>
+by **Rethink JS** <br>
 [https://github.com/Rethink-JS](https://github.com/Rethink-JS)

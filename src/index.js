@@ -259,9 +259,172 @@
     });
   }
 
+  function parseOnCompleteAction(raw) {
+    if (raw === null || raw === undefined) return null;
+    var s = String(raw).trim();
+    if (!s.length) return null;
+
+    var lower = s.toLowerCase();
+
+    function tryQuery(sel) {
+      if (!sel) return null;
+      try {
+        return document.querySelector(sel);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function safeClick(el) {
+      if (!el) return false;
+      try {
+        el.click();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function safeFocus(el) {
+      if (!el) return false;
+      try {
+        if (typeof el.focus === "function") el.focus();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    if (lower.indexOf("{") === 0 || lower.indexOf("[") === 0) {
+      try {
+        var parsed = JSON.parse(s);
+        return function (inst, ctx) {
+          try {
+            if (!parsed) return;
+            var arr = Array.isArray(parsed) ? parsed : [parsed];
+            for (var i = 0; i < arr.length; i++) {
+              var a = arr[i];
+              if (!a || typeof a !== "object") continue;
+
+              var type =
+                typeof a.type === "string" ? a.type.trim().toLowerCase() : "";
+              var selector =
+                typeof a.selector === "string" ? a.selector.trim() : "";
+              var name = typeof a.name === "string" ? a.name.trim() : "";
+              var detail = a.detail !== undefined ? a.detail : undefined;
+
+              if (type === "click") {
+                safeClick(tryQuery(selector));
+              } else if (type === "focus") {
+                safeFocus(tryQuery(selector));
+              } else if (type === "dispatch") {
+                var evName = name || selector;
+                if (evName) {
+                  try {
+                    var ev = new CustomEvent(evName, {
+                      detail: {
+                        trigger: ctx && ctx.trigger ? ctx.trigger : null,
+                        target: ctx && ctx.target ? ctx.target : null,
+                        value: ctx && ctx.value ? ctx.value : null,
+                        id: ctx && ctx.id ? ctx.id : null,
+                        detail: detail,
+                      },
+                    });
+                    window.dispatchEvent(ev);
+                  } catch (e) {}
+                }
+              } else if (type === "call") {
+                var fnName = name || selector;
+                if (
+                  fnName &&
+                  window[fnName] &&
+                  typeof window[fnName] === "function"
+                ) {
+                  try {
+                    window[fnName]({
+                      lenis: inst || null,
+                      trigger: ctx && ctx.trigger ? ctx.trigger : null,
+                      target: ctx && ctx.target ? ctx.target : null,
+                      value: ctx && ctx.value ? ctx.value : null,
+                      id: ctx && ctx.id ? ctx.id : null,
+                      detail: detail,
+                    });
+                  } catch (e) {}
+                }
+              }
+            }
+          } catch (e) {}
+        };
+      } catch (e) {}
+    }
+
+    var m = s.match(/^\s*([a-zA-Z]+)\s*:\s*(.+)\s*$/);
+    if (m) {
+      var type2 = String(m[1] || "")
+        .trim()
+        .toLowerCase();
+      var rest = String(m[2] || "").trim();
+      if (!rest.length) return null;
+
+      if (type2 === "click") {
+        return function () {
+          safeClick(tryQuery(rest));
+        };
+      }
+      if (type2 === "focus") {
+        return function () {
+          safeFocus(tryQuery(rest));
+        };
+      }
+      if (type2 === "dispatch" || type2 === "event") {
+        return function (inst, ctx) {
+          try {
+            var ev2 = new CustomEvent(rest, {
+              detail: {
+                trigger: ctx && ctx.trigger ? ctx.trigger : null,
+                target: ctx && ctx.target ? ctx.target : null,
+                value: ctx && ctx.value ? ctx.value : null,
+                id: ctx && ctx.id ? ctx.id : null,
+              },
+            });
+            window.dispatchEvent(ev2);
+          } catch (e) {}
+        };
+      }
+      if (type2 === "call" || type2 === "fn" || type2 === "function") {
+        return function (inst, ctx) {
+          try {
+            if (window[rest] && typeof window[rest] === "function") {
+              window[rest]({
+                lenis: inst || null,
+                trigger: ctx && ctx.trigger ? ctx.trigger : null,
+                target: ctx && ctx.target ? ctx.target : null,
+                value: ctx && ctx.value ? ctx.value : null,
+                id: ctx && ctx.id ? ctx.id : null,
+              });
+            }
+          } catch (e) {}
+        };
+      }
+    }
+
+    var el = tryQuery(s);
+    if (el) {
+      return function () {
+        safeClick(el);
+      };
+    }
+
+    return null;
+  }
+
   function convertAnchorLinks() {
     var raw = getAttr("rt-smooth-scroll-anchor-links");
     if (!parseBool(raw, false)) return;
+
+    var defaultOnComplete = getAttr(
+      "rt-smooth-scroll-anchor-links-on-complete",
+    );
 
     var links = document.querySelectorAll('a[href*="#"]');
     var currentPath = window.location.pathname
@@ -307,10 +470,19 @@
       if (isLocal) {
         link.setAttribute("rt-smooth-scroll-to", hashPart);
 
-        // Remove href completely to hide status bar text
+        if (
+          !link.hasAttribute("rt-smooth-scroll-on-complete") &&
+          defaultOnComplete !== null &&
+          defaultOnComplete !== undefined
+        ) {
+          link.setAttribute(
+            "rt-smooth-scroll-on-complete",
+            String(defaultOnComplete),
+          );
+        }
+
         link.removeAttribute("href");
 
-        // Restore accessibility and cursor
         link.style.cursor = "pointer";
         link.setAttribute("tabindex", "0");
         link.setAttribute("role", "button");
@@ -496,8 +668,6 @@
 
         if (!instance) return;
 
-        // Force resize before calculating scroll to handle lazy-loaded elements
-        // that might have shifted layout since the last update.
         instance.resize();
 
         var opts = {};
@@ -532,24 +702,73 @@
         );
         if (force !== null) opts.force = force;
 
-        // If target is an DOM Element (not a number), we add a correction step.
-        // If layout shifts during the scroll (e.g. images loading), the target
-        // position might change. We re-check on completion.
-        if (target instanceof Element) {
-          var originalComplete = opts.onComplete;
-          opts.onComplete = function (inst) {
-            if (originalComplete) originalComplete(inst);
-            // Re-measure the layout
-            instance.resize();
-            // Perform a correction scroll to the updated position
-            // We create a copy of opts but remove onComplete to prevent infinite loops
-            var retryOpts = {};
-            for (var k in opts) retryOpts[k] = opts[k];
-            delete retryOpts.onComplete;
-            // Execute correction
-            instance.scrollTo(target, retryOpts);
+        var onCompleteRawLocal = targetEl.getAttribute(
+          "rt-smooth-scroll-on-complete",
+        );
+        var onCompleteRawGlobal = getAttr("rt-smooth-scroll-on-complete");
+        var onCompleteFn = parseOnCompleteAction(
+          isAttrPresent(onCompleteRawLocal)
+            ? onCompleteRawLocal
+            : onCompleteRawGlobal,
+        );
+
+        var ctx = {
+          trigger: targetEl,
+          target: target,
+          value: targetVal,
+          id: explicitId || null,
+        };
+
+        var userOnComplete = null;
+        if (onCompleteFn) {
+          userOnComplete = function (inst) {
+            try {
+              onCompleteFn(inst, ctx);
+            } catch (e) {}
           };
         }
+
+        var didCorrect = false;
+        var originalComplete = opts.onComplete;
+
+        opts.onComplete = function (inst) {
+          if (target instanceof Element) {
+            if (!didCorrect) {
+              didCorrect = true;
+              try {
+                instance.resize();
+              } catch (e) {}
+              var retryOpts = {};
+              for (var k in opts) retryOpts[k] = opts[k];
+              delete retryOpts.onComplete;
+              retryOpts.onComplete = function (inst2) {
+                if (originalComplete) {
+                  try {
+                    originalComplete(inst2);
+                  } catch (e) {}
+                }
+                if (userOnComplete) {
+                  try {
+                    userOnComplete(inst2);
+                  } catch (e) {}
+                }
+              };
+              instance.scrollTo(target, retryOpts);
+              return;
+            }
+          }
+
+          if (originalComplete) {
+            try {
+              originalComplete(inst);
+            } catch (e) {}
+          }
+          if (userOnComplete) {
+            try {
+              userOnComplete(inst);
+            } catch (e) {}
+          }
+        };
 
         instance.scrollTo(target, opts);
       };
