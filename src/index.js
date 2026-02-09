@@ -420,7 +420,7 @@
 
   function convertAnchorLinks() {
     var raw = getAttr("rt-smooth-scroll-anchor-links");
-    if (!parseBool(raw, false)) return;
+    if (!parseBool(raw, false)) return 0;
 
     var defaultOnComplete = getAttr(
       "rt-smooth-scroll-anchor-links-on-complete",
@@ -431,6 +431,7 @@
       .replace(/\/+$/, "")
       .toLowerCase();
     var origin = window.location.origin;
+    var count = 0;
 
     for (var i = 0; i < links.length; i++) {
       var link = links[i];
@@ -482,17 +483,18 @@
         }
 
         link.removeAttribute("href");
-
         link.style.cursor = "pointer";
         link.setAttribute("tabindex", "0");
         link.setAttribute("role", "button");
+        count++;
       }
     }
+    return count;
   }
 
   function init() {
     ensureAutoEnableIfNeeded();
-    convertAnchorLinks();
+    var convertedCount = convertAnchorLinks();
 
     var enabledRoot = hasAttrAnywhere("rt-smooth-scroll");
     var instanceEls = document.querySelectorAll("[rt-smooth-scroll-instance]");
@@ -510,10 +512,21 @@
     );
     var debug = parseBool(getAttr("rt-smooth-scroll-debug"), true);
 
+    function log(msg, extra) {
+      if (debug) {
+        if (extra !== undefined)
+          console.log("[rt-smooth-scroll] " + msg, extra);
+        else console.log("[rt-smooth-scroll] " + msg);
+      }
+    }
+
+    if (convertedCount > 0) log("Anchors converted:", convertedCount);
+
     var state = {
       destroyed: false,
       rafId: 0,
       instances: {},
+      observers: {},
       order: [],
       resizeTimers: {},
       clickListener: null,
@@ -605,6 +618,20 @@
       return wrapperEl.firstElementChild || wrapperEl;
     }
 
+    function startResizeObserver(id, element) {
+      if (!element || typeof ResizeObserver === "undefined") return;
+      try {
+        var ro = new ResizeObserver(function () {
+          scheduleResize(id);
+        });
+        ro.observe(element);
+        state.observers[id] = ro;
+        log("Auto-resize observer attached:", id);
+      } catch (e) {
+        log("Failed to attach resize observer:", e);
+      }
+    }
+
     function createInstance(id, wrapper, content, options, isRoot) {
       var opts = options || {};
       if (!isRoot) {
@@ -615,15 +642,22 @@
       state.instances[id] = inst;
       state.order.push(id);
       if (id === "root") window.lenis = inst;
-      if (debug) {
-        try {
-          console.log("[rt-smooth-scroll] instance:", id, {
-            wrapper: isRoot ? opts.wrapper || "default" : wrapper,
-            content: isRoot ? opts.content || "default" : content,
-            options: sanitizeOptionsForLog(opts),
-          });
-        } catch (e) {}
+
+      // START OBSERVER FOR AUTO-RESIZE ON DOM CHANGES
+      var observeTarget = null;
+      if (isRoot) {
+        observeTarget = document.body;
+      } else {
+        observeTarget = opts.content || opts.wrapper || wrapper;
       }
+      startResizeObserver(id, observeTarget);
+
+      log("Instance created:", {
+        id: id,
+        isRoot: isRoot,
+        options: sanitizeOptionsForLog(opts),
+      });
+
       return inst;
     }
 
@@ -633,6 +667,8 @@
       var handleScrollAction = function (targetEl, e) {
         var targetVal = targetEl.getAttribute("rt-smooth-scroll-to");
         if (!targetVal) return;
+
+        log("Scroll triggered to:", targetVal);
 
         if (e) e.preventDefault();
 
@@ -647,7 +683,10 @@
           target = resolveTargetFromStr(targetVal);
         }
 
-        if (target === null && targetVal !== "top" && isNaN(numeric)) return;
+        if (target === null && targetVal !== "top" && isNaN(numeric)) {
+          log("Target not found for:", targetVal);
+          return;
+        }
 
         var instance = null;
         var explicitId = targetEl.getAttribute("rt-smooth-scroll-target-id");
@@ -666,7 +705,10 @@
           instance = state.instances["root"];
         }
 
-        if (!instance) return;
+        if (!instance) {
+          log("No instance found to handle scroll.");
+          return;
+        }
 
         instance.resize();
 
@@ -839,12 +881,20 @@
           });
         },
         refreshAnchors: function () {
-          convertAnchorLinks();
+          var c = convertAnchorLinks();
+          if (c > 0) log("Anchors refreshed, count:", c);
         },
         destroy: function (id) {
           if (state.destroyed) return;
           function destroyOne(k) {
             clearTimeout(state.resizeTimers[k]);
+            // Stop and remove resize observer
+            if (state.observers[k]) {
+              try {
+                state.observers[k].disconnect();
+              } catch (e) {}
+              delete state.observers[k];
+            }
             var inst = state.instances[k];
             if (inst) {
               try {
@@ -861,6 +911,7 @@
                 window.lenis = undefined;
               }
             }
+            log("Instance destroyed:", k);
           }
           if (typeof id === "string" && id.length) {
             destroyOne(id);
@@ -877,6 +928,7 @@
           while (state.order.length) destroyOne(state.order[0]);
           state.destroyed = true;
           if (state.rafId) cancelAnimationFrame(state.rafId);
+          log("All instances destroyed.");
         },
       };
     }
@@ -894,6 +946,7 @@
 
     loadScriptOnce(lenisSrc)
       .then(function () {
+        log("Lenis script loaded.");
         if (state.destroyed) return;
         var els = document.querySelectorAll("[rt-smooth-scroll-instance]");
         var totalCount = (enabledRoot ? 1 : 0) + (els ? els.length : 0);
@@ -951,7 +1004,9 @@
           api.resize();
         });
       })
-      .catch(function () {});
+      .catch(function (e) {
+        log("Error loading Lenis script:", e);
+      });
   }
 
   if (document.readyState === "loading") {

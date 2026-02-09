@@ -14,9 +14,10 @@
 - A clean global API under `window.rtSmoothScroll`
 - **Smart Scroll-To actions** with indexed selectors and dynamic offsets
 - **Automatic Anchor Link Conversion** (hijack native links for smooth scrolling)
+- **Automatic DOM Resize Detection** (uses `ResizeObserver` to update scroll height on dynamic content changes)
 - **Scroll-To Completion Hooks** (run actions/functions after a scroll-to completes)
 - Per-instance configuration via HTML attributes
-- Console logs showing each instance’s final resolved config
+- **Debug Mode** with helpful console logs for development
 
 **Lenis (GitHub):** https://github.com/darkroomengineering/lenis
 
@@ -34,7 +35,7 @@
 - [6. Anchor Link Conversion](#6-anchor-link-conversion)
 - [7. Multiple Instances](#7-multiple-instances)
 - [8. Global API](#8-global-api)
-- [9. Console Logging](#9-console-logging)
+- [9. Console Logging & Debugging](#9-console-logging--debugging)
 - [10. Troubleshooting](#10-troubleshooting)
 - [11. License](#11-license)
 
@@ -45,13 +46,14 @@
 ### 1.1 CDN (jsDelivr)
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js"></script>
+<script src="[https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js](https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js)"></script>
 ```
 
 ### 1.2 npm
 
 ```bash
 npm install @rethink-js/rt-smooth-scroll
+
 ```
 
 Then bundle or load `dist/index.min.js` as appropriate for your build setup.
@@ -70,7 +72,7 @@ Add the script to your page. With no configuration provided, `rt-smooth-scroll` 
 Example:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js"></script>
+<script src="[https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js](https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js)"></script>
 ```
 
 > Note: If you do not set any `rt-smooth-scroll-*` config attributes, the root instance uses **Lenis defaults**.
@@ -108,6 +110,7 @@ Place on `<html>` or `<body>` to configure defaults:
   rt-smooth-scroll-lerp="0.2"
   rt-smooth-scroll-wheel-multiplier="1"
   rt-smooth-scroll-easing="easeOutCubic"
+  rt-smooth-scroll-debug="true"
 ></body>
 ```
 
@@ -131,13 +134,15 @@ Important Lenis behavior:
 | `rt-smooth-scroll-sync-touch-lerp`        | Lenis `syncTouchLerp`                                        |
 | `rt-smooth-scroll-touch-inertia-exponent` | Lenis `touchInertiaExponent`                                 |
 | `rt-smooth-scroll-infinite`               | Lenis `infinite`                                             |
-| `rt-smooth-scroll-auto-resize`            | Lenis `autoResize`                                           |
+| `rt-smooth-scroll-auto-resize`            | Lenis `autoResize` (window resize only)                      |
 | `rt-smooth-scroll-overscroll`             | Lenis `overscroll`                                           |
 | `rt-smooth-scroll-anchors`                | Lenis `anchors` (boolean or JSON)                            |
 | `rt-smooth-scroll-auto-toggle`            | Lenis `autoToggle`                                           |
 | `rt-smooth-scroll-allow-nested-scroll`    | Lenis `allowNestedScroll`                                    |
 | `rt-smooth-scroll-easing`                 | Named easing function (only applies when `lerp` is not used) |
 | `rt-smooth-scroll-options-json`           | Merge additional Lenis options via JSON                      |
+| `rt-smooth-scroll-debug`                  | Enable/disable console logging (default: `true`)             |
+| `rt-smooth-scroll-resize-debounce-ms`     | Delay (ms) for resize calculations (default: `0`)            |
 
 **Easing options included:**
 
@@ -440,16 +445,23 @@ window.lenis;
 
 ---
 
-## 9. Console Logging
+## 9. Console Logging & Debugging
 
-On startup, each instance logs:
+By default, `rt-smooth-scroll` runs in **debug mode** (`true`). It will log helpful messages to the console during development, such as:
 
-- Instance ID
-- Wrapper element
-- Content element
-- Final resolved options
+- Lenis load status
+- Anchor link conversion counts
+- Instance creation (showing resolved options)
+- Scroll triggers (showing target resolution)
+- ResizeObserver attachments
 
-This helps you confirm exactly what configuration is applied in the browser.
+### Disabling Logs
+
+To silence these logs in production, set the attribute to false on your root element:
+
+```html
+<body rt-smooth-scroll rt-smooth-scroll-debug="false"></body>
+```
 
 ---
 
@@ -461,9 +473,12 @@ This helps you confirm exactly what configuration is applied in the browser.
 - **Decrease** `rt-smooth-scroll-lerp` (e.g. `0.1 → 0.05`) for a smoother/heavier feel.
 - Leave `rt-smooth-scroll-wheel-multiplier="1"` unless you have a strong reason to change perceived speed.
 
-### Duration / easing doesn’t seem to do anything
+### Dynamic content (Accordions/Tabs) cuts off scroll
 
-Lenis treats `duration` and `easing` as **useless if `lerp` is defined**. If you want time-based behavior, ensure you’re not effectively running in lerp-mode.
+This library includes a built-in `ResizeObserver` that watches your content for height changes.
+
+- Ensure your content is properly wrapped.
+- If you have rapid animations causing lag, you can debounce the resize events using `rt-smooth-scroll-resize-debounce-ms="100"`.
 
 ### My `rt-smooth-scroll-on-complete` didn’t run
 
