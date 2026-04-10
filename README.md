@@ -13,6 +13,7 @@
 - Support for **multiple smooth scroll instances**
 - A clean global API under `window.rtSmoothScroll`
 - **Smart Scroll-To actions** with indexed selectors and dynamic offsets
+- **Advanced Offset Expressions** with selectors plus CSS length units
 - **Automatic Anchor Link Conversion** (hijack native links for smooth scrolling)
 - **Automatic DOM Resize Detection** (uses `ResizeObserver` to update scroll height on dynamic content changes)
 - **Scroll-To Completion Hooks** (run actions/functions after a scroll-to completes)
@@ -46,14 +47,13 @@
 ### 1.1 CDN (jsDelivr)
 
 ```html
-<script src="[https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js](https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js)"></script>
+<script src="https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js"></script>
 ```
 
 ### 1.2 npm
 
 ```bash
 npm install @rethink-js/rt-smooth-scroll
-
 ```
 
 Then bundle or load `dist/index.min.js` as appropriate for your build setup.
@@ -72,7 +72,7 @@ Add the script to your page. With no configuration provided, `rt-smooth-scroll` 
 Example:
 
 ```html
-<script src="[https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js](https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js)"></script>
+<script src="https://cdn.jsdelivr.net/npm/@rethink-js/rt-smooth-scroll@latest/dist/index.min.js"></script>
 ```
 
 > Note: If you do not set any `rt-smooth-scroll-*` config attributes, the root instance uses **Lenis defaults**.
@@ -228,24 +228,101 @@ You can target elements by class order (1-based index) using `.class(N)` syntax.
 
 You can customize the scroll behavior for specific triggers.
 
-| Attribute                    | Description                                                        |
-| ---------------------------- | ------------------------------------------------------------------ |
-| `rt-smooth-scroll-offset`    | Offset in pixels. **Supports selectors!** (See below)              |
-| `rt-smooth-scroll-duration`  | Override scroll duration for this action                           |
-| `rt-smooth-scroll-immediate` | Jump instantly (true/false)                                        |
-| `rt-smooth-scroll-lock`      | Lock scroll during animation                                       |
-| `rt-smooth-scroll-force`     | Force scroll even if stopped                                       |
-| `rt-smooth-scroll-target-id` | **Explicitly** target a specific scroll instance ID (e.g. "panel") |
+| Attribute                    | Description                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| `rt-smooth-scroll-offset`    | Offset value. Supports numbers, CSS length units, selectors, and selector expressions |
+| `rt-smooth-scroll-duration`  | Override scroll duration for this action                                              |
+| `rt-smooth-scroll-immediate` | Jump instantly (true/false)                                                           |
+| `rt-smooth-scroll-lock`      | Lock scroll during animation                                                          |
+| `rt-smooth-scroll-force`     | Force scroll even if stopped                                                          |
+| `rt-smooth-scroll-target-id` | **Explicitly** target a specific scroll instance ID (e.g. `"panel"`)                  |
 
-### Dynamic Element Offsets
+### Offset Value Support
 
-Instead of hardcoding pixels, you can pass a selector to `rt-smooth-scroll-offset`. The library will calculate that element's `offsetHeight` and apply it as a **negative offset** (perfect for sticky headers).
+`rt-smooth-scroll-offset` now supports all of the following:
+
+#### 1) Plain numeric values
+
+These are treated as pixel values.
+
+```html
+<button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="32">About</button>
+```
+
+#### 2) CSS length units
+
+Supported units:
+
+- `px`
+- `rem`
+- `em`
+- `vh`
+- `vw`
+
+Examples:
+
+```html
+<button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="32px">
+  About
+</button>
+
+<button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="2rem">
+  About
+</button>
+
+<button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="5vh">
+  About
+</button>
+```
+
+#### 3) Dynamic element offsets
+
+Instead of hardcoding pixels, you can pass a selector to `rt-smooth-scroll-offset`. The library will calculate that element’s `offsetHeight` and apply it as a **negative offset**.
+
+This is useful for sticky headers and fixed navbars.
 
 ```html
 <button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="#nav">
   About
 </button>
 ```
+
+#### 4) Offset expressions
+
+You can combine selectors and CSS length values with `+` or `-`.
+
+Examples:
+
+```html
+<button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="#nav + 32px">
+  About
+</button>
+
+<button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="#nav + 2rem">
+  About
+</button>
+
+<button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="#nav + 5vh">
+  About
+</button>
+
+<button rt-smooth-scroll-to="#about" rt-smooth-scroll-offset="#nav - 16px">
+  About
+</button>
+```
+
+How expressions are resolved:
+
+- Length values (`32`, `32px`, `2rem`, `5vh`, etc.) are converted into pixels
+- Selectors resolve to that element’s `offsetHeight`
+- If one or more selectors are present in the expression, the final expression is applied as a **negative offset**
+- If the expression contains only numeric/length values, it is applied as a normal numeric offset
+
+This means:
+
+- `rt-smooth-scroll-offset="#nav"` becomes negative nav height
+- `rt-smooth-scroll-offset="#nav + 32px"` becomes negative `(nav height + 32px)`
+- `rt-smooth-scroll-offset="32px"` becomes positive `32`
 
 ### Scroll-To Completion Hooks
 
@@ -479,6 +556,16 @@ This library includes a built-in `ResizeObserver` that watches your content for 
 
 - Ensure your content is properly wrapped.
 - If you have rapid animations causing lag, you can debounce the resize events using `rt-smooth-scroll-resize-debounce-ms="100"`.
+
+### My `rt-smooth-scroll-offset` expression is not working
+
+Check the following:
+
+- Use valid selectors and valid CSS length units only
+- Supported units are `px`, `rem`, `em`, `vh`, and `vw`
+- Leave spaces around operators for readability, e.g. `#nav + 2rem`
+- Do not use unsupported CSS functions like `calc()`
+- Expressions are intended for additive/subtractive combinations, e.g. `#nav + 32px` or `#nav - 16px`
 
 ### My `rt-smooth-scroll-on-complete` didn’t run
 

@@ -83,6 +83,124 @@
     }
   }
 
+  function getRootFontSizePx() {
+    try {
+      var root = document.documentElement;
+      if (!root) return 16;
+      var fs = window.getComputedStyle(root).fontSize;
+      var n = parseFloat(fs);
+      return Number.isFinite(n) && n > 0 ? n : 16;
+    } catch (e) {
+      return 16;
+    }
+  }
+
+  function getElementOffsetValue(el) {
+    if (!el) return 0;
+    if (el === window) return window.innerHeight || 0;
+    if (el === document.documentElement) return el.offsetHeight || 0;
+    if (el === document.body) return el.offsetHeight || 0;
+    return el.offsetHeight || 0;
+  }
+
+  function parseLengthTokenToPx(token) {
+    if (token === null || token === undefined) return null;
+    var s = String(token).trim();
+    if (!s.length) return null;
+
+    if (/^[+-]?\d+(\.\d+)?$/.test(s)) {
+      var plain = parseFloat(s);
+      return Number.isFinite(plain) ? plain : null;
+    }
+
+    var m = s.match(/^([+-]?\d+(?:\.\d+)?)(px|rem|em|vh|vw)$/i);
+    if (!m) return null;
+
+    var value = parseFloat(m[1]);
+    var unit = String(m[2] || "").toLowerCase();
+
+    if (!Number.isFinite(value)) return null;
+
+    if (unit === "px") return value;
+    if (unit === "rem") return value * getRootFontSizePx();
+    if (unit === "em") {
+      var body = document.body;
+      var base = 16;
+      try {
+        if (body) {
+          var fs = window.getComputedStyle(body).fontSize;
+          var n = parseFloat(fs);
+          if (Number.isFinite(n) && n > 0) base = n;
+        }
+      } catch (e) {}
+      return value * base;
+    }
+    if (unit === "vh") return (window.innerHeight || 0) * (value / 100);
+    if (unit === "vw") return (window.innerWidth || 0) * (value / 100);
+
+    return null;
+  }
+
+  function parseOffsetExpression(raw) {
+    if (raw === null || raw === undefined) return undefined;
+
+    var input = String(raw).trim();
+    if (!input.length) return undefined;
+
+    var directNumber = parseNum(input, undefined);
+    if (directNumber !== undefined) return directNumber;
+
+    var directLength = parseLengthTokenToPx(input);
+    if (directLength !== null) return directLength;
+
+    var directTarget = resolveTargetFromStr(input);
+    if (directTarget) return -1 * getElementOffsetValue(directTarget);
+
+    var exprParts = [];
+    var re = /(^|[+\-])\s*([^+\-]+?)(?=\s*[+\-]\s*[^+\-]+|$)/g;
+    var match;
+
+    while ((match = re.exec(input))) {
+      var opRaw = match[1] || "+";
+      var valueRaw = match[2] || "";
+      var op = opRaw === "-" ? -1 : 1;
+      var value = String(valueRaw).trim();
+      if (!value.length) continue;
+      exprParts.push({ op: op, value: value });
+    }
+
+    if (!exprParts.length) return undefined;
+
+    var sum = 0;
+    var hasSelector = false;
+    var hasAny = false;
+
+    for (var i = 0; i < exprParts.length; i++) {
+      var part = exprParts[i];
+      var px = parseLengthTokenToPx(part.value);
+
+      if (px !== null) {
+        sum += part.op * px;
+        hasAny = true;
+        continue;
+      }
+
+      var target = resolveTargetFromStr(part.value);
+      if (target) {
+        sum += part.op * getElementOffsetValue(target);
+        hasSelector = true;
+        hasAny = true;
+        continue;
+      }
+
+      return undefined;
+    }
+
+    if (!hasAny) return undefined;
+    if (hasSelector) return -1 * sum;
+    return sum;
+  }
+
   function easingByName(name) {
     var n = String(name || "").trim();
     if (!n) return null;
@@ -304,14 +422,19 @@
             var arr = Array.isArray(parsed) ? parsed : [parsed];
             for (var i = 0; i < arr.length; i++) {
               var a = arr[i];
-              if (!a || typeof a !== "object") continue;
+              if (!a || typeof a === "object") {
+              }
+            }
+            for (var i2 = 0; i2 < arr.length; i2++) {
+              var a2 = arr[i2];
+              if (!a2 || typeof a2 !== "object") continue;
 
               var type =
-                typeof a.type === "string" ? a.type.trim().toLowerCase() : "";
+                typeof a2.type === "string" ? a2.type.trim().toLowerCase() : "";
               var selector =
-                typeof a.selector === "string" ? a.selector.trim() : "";
-              var name = typeof a.name === "string" ? a.name.trim() : "";
-              var detail = a.detail !== undefined ? a.detail : undefined;
+                typeof a2.selector === "string" ? a2.selector.trim() : "";
+              var name = typeof a2.name === "string" ? a2.name.trim() : "";
+              var detail = a2.detail !== undefined ? a2.detail : undefined;
 
               if (type === "click") {
                 safeClick(tryQuery(selector));
@@ -643,7 +766,6 @@
       state.order.push(id);
       if (id === "root") window.lenis = inst;
 
-      // START OBSERVER FOR AUTO-RESIZE ON DOM CHANGES
       var observeTarget = null;
       if (isRoot) {
         observeTarget = document.body;
@@ -715,12 +837,9 @@
         var opts = {};
         var offsetRaw = targetEl.getAttribute("rt-smooth-scroll-offset");
         if (offsetRaw) {
-          var offsetNum = parseFloat(offsetRaw);
-          if (!isNaN(offsetNum) && isFinite(offsetNum)) {
-            opts.offset = offsetNum;
-          } else {
-            var offsetEl = resolveTargetFromStr(offsetRaw);
-            if (offsetEl) opts.offset = -1 * offsetEl.offsetHeight;
+          var parsedOffset = parseOffsetExpression(offsetRaw);
+          if (parsedOffset !== undefined && Number.isFinite(parsedOffset)) {
+            opts.offset = parsedOffset;
           }
         }
         var dur = parseNum(
@@ -888,7 +1007,6 @@
           if (state.destroyed) return;
           function destroyOne(k) {
             clearTimeout(state.resizeTimers[k]);
-            // Stop and remove resize observer
             if (state.observers[k]) {
               try {
                 state.observers[k].disconnect();
